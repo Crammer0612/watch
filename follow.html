@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Creatures with Tentacles</title>
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+      }
+      canvas {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="canvas"></canvas>
+    <script>
+      const canvas = document.getElementById("canvas");
+      const ctx = canvas.getContext("2d");
+      let w = (canvas.width = window.innerWidth);
+      let h = (canvas.height = window.innerHeight);
+      let collisionCount = 0; // Initialize collision counter
+
+      // Creature class
+      class Creature {
+        constructor(x, y) {
+          this.x = x;
+          this.y = y;
+          this.vx = Math.random() * 2 - 1; // Random horizontal velocity
+          this.vy = Math.random() * 2 - 1; // Random vertical velocity
+          this.speed = Math.random() * (0.05 - 0.02) + 0.02; // Random speed
+          this.radius = Math.random() * (10 - 5) + 5; // Random radius for the head
+          this.color = ["#FF5733", "#33FF57", "#3357FF"][
+            Math.floor(Math.random() * 3)
+          ]; // Random color
+          this.tentacleLength = this.radius * 4; // Increased length of the tentacles
+          this.tentacleCount = 6; // Number of tentacles
+          this.tentacleAngles = Array.from(
+            { length: this.tentacleCount },
+            () => Math.random() * Math.PI * 2
+          ); // Random angles for tentacles
+        }
+
+        follow(targetX, targetY) {
+          const dx = targetX - this.x;
+          const dy = targetY - this.y;
+          this.vx = dx * this.speed * 0.5; // Reduced influence on movement
+          this.vy = dy * this.speed * 0.5; // Reduced influence on movement
+        }
+
+        drawTentacles() {
+          for (let i = 0; i < this.tentacleCount; i++) {
+            const angle = this.tentacleAngles[i];
+            const waveOffset = Math.sin(Date.now() * 0.005 + i) * 10; // Wavy motion effect
+            const tentacleX =
+              this.x + Math.cos(angle) * (this.tentacleLength + waveOffset);
+            const tentacleY =
+              this.y + Math.sin(angle) * (this.tentacleLength + waveOffset);
+
+            ctx.beginPath();
+            ctx.moveTo(this.x, this.y); // Start from the head
+            ctx.lineTo(tentacleX, tentacleY); // Draw tentacle to the calculated position
+            ctx.strokeStyle = this.color; // Use the creature's color for the tentacles
+            ctx.lineWidth = 2; // Width of the tentacles
+            ctx.stroke();
+
+            // Update tentacle angles for free motion
+            this.tentacleAngles[i] += Math.sin(Date.now() * 0.001 + i) * 0.05; // Swaying motion
+          }
+        }
+
+        tick(creatures) {
+          this.x += this.vx;
+          this.y += this.vy;
+
+          // Bounce off the walls
+          if (this.x - this.radius < 0 || this.x + this.radius > w) {
+            this.vx *= -1; // Reverse horizontal velocity
+          }
+          if (this.y - this.radius < 0 || this.y + this.radius > h) {
+            this.vy *= -1; // Reverse vertical velocity
+          }
+
+          // Check for collision with other creatures
+          for (const other of creatures) {
+            if (other !== this) {
+              const dx = other.x - this.x;
+              const dy = other.y - this.y;
+              const distance = Math.sqrt(dx * dx + dy * dy);
+              const minDistance = this.radius + other.radius;
+
+              if (distance < minDistance) {
+                // Simple collision response: reverse velocities
+                this.vx *= -1;
+                this.vy *= -1;
+                other.vx *= -1;
+                other.vy *= -1;
+
+                // Move the creatures apart to prevent sticking
+                const overlap = minDistance - distance;
+                const angle = Math.atan2(dy, dx);
+                this.x -= Math.cos(angle) * overlap * 0.5; // Move this creature back
+                this.y -= Math.sin(angle) * overlap * 0.5; // Move this creature back
+                other.x += Math.cos(angle) * overlap * 0.5; // Move the other creature forward
+                other.y += Math.sin(angle) * overlap * 0.5; // Move the other creature forward
+
+                // Increment collision counter
+                collisionCount++;
+              }
+            }
+          }
+
+          // Draw the creature's head
+          ctx.beginPath();
+          ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2); // Creature head
+          ctx.fillStyle = this.color;
+          ctx.fill();
+          ctx.closePath();
+
+          // Draw the tentacles
+          this.drawTentacles();
+        }
+      }
+
+      // Helper functions
+      function many(count, spawn) {
+        return Array.from({ length: count }, () => spawn());
+      }
+
+      function spawn() {
+        return new Creature(Math.random() * w, Math.random() * h); // Random initial position
+      }
+
+      // Create creatures
+      const creatureCount = 5; // Set to 5 creatures
+      const creatures = many(creatureCount, spawn); // Create 5 creatures
+
+      // Listen for pointer movement
+      addEventListener("pointermove", (e) => {
+        creatures.forEach((creature) => creature.follow(e.clientX, e.clientY));
+      });
+
+      // Animation loop
+      function animate() {
+        ctx.fillStyle = "#000"; // Clear screen
+        ctx.fillRect(0, 0, w, h);
+
+        creatures.forEach((creature) => creature.tick(creatures)); // Update and draw creatures
+
+        // Display collision count
+        ctx.fillStyle = "#FFF"; // Set text color to white
+        ctx.font = "20px Arial"; // Set font size and style
+        ctx.fillText(`Collisions: ${collisionCount}`, 10, 30); // Draw collision count on canvas
+
+        requestAnimationFrame(animate);
+      }
+
+      // Resize canvas on window resize
+      window.addEventListener("resize", () => {
+        w = canvas.width = window.innerWidth;
+        h = canvas.height = window.innerHeight; // Resize canvas
+      });
+
+      // Start animation
+      animate();
+    </script>
+  </body>
+</html>
